@@ -12,6 +12,8 @@ project/<br>
 ├─ model.py               # LLM and Retrieval Layer、<br>
 ├─ pdf_verarbeiten.py     # RAG (Retrieval-Augmented Generation) construction from PDFs<br>
 ├─ panel_test.py          # Frontend UI for testing and demonstration<br>
+├─ models                 # Local models for embedding and rerank<br>
+├─ data                   # The vector database <br>
 └─ requirements.txt       # Python dependencies<br>
 ## Tried Approaches
 ### Data Ingestion & Chunking
@@ -84,12 +86,13 @@ It involves embedding each chunk and organizing it in a searchable structure tha
 
 
 ### Retrieval Pipeline
-+ **Query Transformations**：
++ **Query Transformations**：<br>
+
 | Approach | Description | Pros |Cons|
- |-------------|------------|-------------|------------|
+|-------------|------------|-------------|------------|
 | Direct Query (Baseline)|Use the raw user query for similarity search.|Fast, simple baseline.|Sensitive to phrasing, may miss relevant context.|
 |Query Expansion|Expand query using synonyms or related terms.|Improves recall, especially for domain-specific terms.|May add noise; slower preprocessing.|
-|Contextual Reformulation| Use an LLM to rephrase the query into a more precise or historically rich form before retrieval.|Better semantic alignment; more robust to ambiguous queries.|Increases latency and cost.|
+|Contextual Reformulation| Use an LLM to rephrase the query into a more precise or historically rich form before retrieval.| Better semantic alignment; more robust to ambiguous queries.|Increases latency and cost.|
 
 + **Document Retrieval**:
    The retrieval stage performs similarity search on the pre-built vector index (Chroma + LlamaIndex).
@@ -107,8 +110,62 @@ It involves embedding each chunk and organizing it in a searchable structure tha
 
 ### Local Models
 
++ **Approach 1**: Using Llama 3.2 via Ollama
+
+  Initially, the project used Llama 3.2 accessed through Ollama, which provides a convenient local API interface for running and managing open-weight models.
+  
+  * Pros:
+    1. Easy setup and integration with local development.
+  	2. Fast response time due to Ollama’s optimized serving backend.
+  	3.	Supports multiple model sizes and simple switching (e.g., llama3.2:8b vs llama3.2:70b).
+  
+  * Cons:
+    1.	Limited customization for fine-tuning.
+  	2.	Depends on Ollama’s runtime environment and model formats.
+  
+  * Use Case:
+    Used in the early stages for rapid prototyping and testing retrieval-augmented generation (RAG) workflows.
+  
+
+
++ **Approach 2**: Running a Local Fine-tunable Model
+
+  A locally downloaded fine-tunable Llama 3.2 model was adopted to enable custom domain adaptation and deeper control over training and inference.
+  The goal was to explore fine-tuning with domain-specific PDFs and RAG contexts.
+  
+  * Pros:
+    1. Full control of model weights and tokenizer.
+    2. Enables experimentation with fine-tuning or LoRA adapters.
+    3. Works fully offline, no dependency on external services.
+  
+  * Cons:
+    1. Significantly slower inference speed, even with GPU acceleration.
+    2. Higher memory consumption.
+    3. Requires manual environment management (model loading, quantization, batching).
 
 
 ### Interactive UI
+  The UI is implemented with Chainlit to provide a lightweight chat interface for RAG.
+
+  User → Chainlit UI → model retrieve → rerank → answer generate → Stream to UI
+
+  **Key Features**
+  
+  | Feature|Description | 
+  |-------------|------------|
+  | Chat interface |Users can ask questions and receive streaming responses from the LLM.|
+  | Collection selection |Users can select which vector database collection to query (e.g., different document sets).|
+  |Feedback mechanism |After each model response, users can provide feedback(score 1-5 and comments) for quality tracking.|
+  | Session memory |Maintains per-user conversation history and active collection.|
+
+  + **Collection Selection**<br>
+    	- The active collection is stored in cl.user_session["collection_name"].
+      - An initial setting lets the user choose the desired collection.
+      - The backend (model.retrieve()) uses this name to query the corresponding Chroma collection.
+  + **Feedback Mechanism**
+      - Uses @cl.action_callback("feedback") to capture button clicks.
+      - Feedback is linked to the corresponding message ID and query.
+      - Data can be stored in a local log file, database, or analytics dashboard.
+
 
    
